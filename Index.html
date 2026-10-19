@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creador de Video MP4 (Audio + Imagen)</title>
+    <!-- Tailwind CSS para un diseño limpio y moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="bg-slate-800 p-8 rounded-2xl shadow-xl w-full max-w-lg border border-slate-700">
+        <h1 class="text-2xl font-bold mb-6 text-center text-indigo-400">Generador de Video MP4</h1>
+        
+        <div class="space-y-4">
+            <!-- Selector de Imagen -->
+            <div>
+                <label class="block text-sm font-medium mb-1 text-slate-300">Selecciona una Imagen (JPG/PNG):</label>
+                <input type="file" id="imageInput" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+            </div>
+
+            <!-- Selector de MP3 -->
+            <div>
+                <label class="block text-sm font-medium mb-1 text-slate-300">Selecciona un Audio (MP3):</label>
+                <input type="file" id="audioInput" accept="audio/mp3" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+            </div>
+
+            <!-- Botón de Acción -->
+            <button id="processBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-4 rounded-xl transition duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Generar Video MP4
+            </button>
+        </div>
+
+        <!-- Estado y Progreso -->
+        <div id="statusArea" class="mt-6 hidden">
+            <p id="statusText" class="text-sm text-center text-slate-300 mb-2">Cargando...</p>
+            <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                <div id="progressBar" class="bg-indigo-500 h-2.5 w-0 transition-all duration-300"></div>
+            </div>
+        </div>
+
+        <!-- Resultados -->
+        <div id="resultArea" class="mt-6 hidden text-center">
+            <video id="outputVideo" controls class="w-full rounded-xl mb-4 border border-slate-700"></video>
+            <a id="downloadBtn" class="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-6 rounded-xl transition duration-200">
+                Descargar MP4
+            </a>
+        </div>
+    </div>
+
+    <!-- Scripts de FFmpeg.wasm (versión compatible con navegador) -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+
+    <script>
+        const { FFmpeg } = FFmpegWASM;
+        let ffmpeg = null;
+
+        const imageInput = document.getElementById('imageInput');
+        const audioInput = document.getElementById('audioInput');
+        const processBtn = document.getElementById('processBtn');
+        const statusArea = document.getElementById('statusArea');
+        const statusText = document.getElementById('statusText');
+        const progressBar = document.getElementById('progressBar');
+        const resultArea = document.getElementById('resultArea');
+        const outputVideo = document.getElementById('outputVideo');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Validar si ambos archivos han sido seleccionados
+        function checkInputs() {
+            if (imageInput.files.length > 0 && audioInput.files.length > 0) {
+                processBtn.disabled = false;
+            } else {
+                processBtn.disabled = true;
+            }
+        }
+
+        imageInput.addEventListener('change', checkInputs);
+        audioInput.addEventListener('change', checkInputs);
+
+        async function loadFFmpeg() {
+            if (ffmpeg) return;
+            statusArea.classList.remove('hidden');
+            statusText.textContent = 'Inicializando motor de video (puede tardar unos segundos)...';
+
+            ffmpeg = new FFmpeg();
+
+            // Configurar logs de progreso
+            ffmpeg.on('progress', ({ progress }) => {
+                const percent = Math.round(progress * 100);
+                progressBar.style.width = `${percent}%`;
+                statusText.textContent = `Procesando video... ${percent}%`;
+            });
+
+            // Cargar los archivos binarios de FFmpeg desde CDN
+            await ffmpeg.load({
+                coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
+                wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm",
+            });
+        }
+
+        processBtn.addEventListener('click', async () => {
+            try {
+                processBtn.disabled = true;
+                statusArea.classList.remove('hidden');
+                resultArea.classList.add('hidden');
+                progressBar.style.width = '0%';
+
+                await loadFFmpeg();
+
+                const imageFile = imageInput.files[0];
+                const audioFile = audioInput.files[0];
+
+                statusText.textContent = 'Leyendo archivos...';
+                
+                // Escribir archivos en la memoria virtual de FFmpeg
+                await ffmpeg.writeFile('input_image.jpg', await window.FFmpegUtil.fetchFile(imageFile));
+                await ffmpeg.writeFile('input_audio.mp3', await window.FFmpegUtil.fetchFile(audioFile));
+
+                statusText.textContent = 'Generando video...';
+
+                // Comando FFmpeg: Combina imagen estática y audio en un MP4 H.264 / AAC
+                await ffmpeg.exec([
+                    '-loop', '1',
+                    '-i', 'input_image.jpg',
+                    '-i', 'input_audio.mp3',
+                    '-c:v', 'libx264',
+                    '-tune', 'stillimage',
+                    '-c:a', 'aac',
+                    '-b:a', '192k',
+                    '-pix_fmt', 'yuv420p',
+                    '-shortest',
+                    'output.mp4'
+                ]);
+
+                statusText.textContent = '¡Video generado con éxito!';
+                progressBar.style.width = '100%';
+
+                // Leer el archivo resultante de la memoria virtual
+                const data = await ffmpeg.readFile('output.mp4');
+                const videoUrl = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+
+                outputVideo.src = videoUrl;
+                downloadBtn.href = videoUrl;
+                downloadBtn.download = 'video-generado.mp4';
+                
+                resultArea.classList.remove('hidden');
+            } catch (error) {
+                console.error(error);
+                statusText.textContent = 'Ocurrió un error al procesar el video.';
+            } finally {
+                processBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
