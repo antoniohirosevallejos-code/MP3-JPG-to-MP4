@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creador de Video HD con Visualizador</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+  <div class="bg-slate-800 p-6 rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-700 space-y-6">
+    <h1 class="text-2xl font-bold text-center text-indigo-400">Creador de Video con Visualizador de Audio</h1>
+
+    <!-- Controles de Archivos y Opciones -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Imagen de portada</label>
+        <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Archivo MP3</label>
+        <input type="file" id="audioInput" accept="audio/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+      </div>
+    </div>
+
+    <!-- Opciones de Estilo del Visualizador -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Color de las Barras</label>
+        <select id="barColorSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500">
+          <option value="smart">Automático (Contraste Inteligente)</option>
+          <option value="white">Blanco Puro</option>
+          <option value="#6366f1">Índigo / Azul Moderno</option>
+          <option value="#10b981">Esmeralda / Verde</option>
+          <option value="#f43f5e">Rosa / Fucsia</option>
+          <option value="#eab308">Amarillo Brillante</option>
+          <option value="#000000">Negro Puro</option>
+        </select>
+      </div>
+      <div class="flex items-center justify-center pt-5">
+        <button id="previewToggleBtn" disabled class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed text-sm">
+          ▶ Reproducir Previsualización
+        </button>
+      </div>
+    </div>
+
+    <!-- Previsualización / Canvas en Tiempo Real -->
+    <div class="relative aspect-video bg-black rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center shadow-inner">
+      <canvas id="previewCanvas" class="w-full h-full object-contain"></canvas>
+      <div id="placeholderText" class="absolute text-slate-500 text-sm">Carga una imagen y un MP3 para comenzar</div>
+    </div>
+
+    <!-- Controles de Renderizado y Estado -->
+    <div class="space-y-3">
+      <button id="renderBtn" disabled class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg">
+        Grabar y Exportar Video HD con Visualizador
+      </button>
+
+      <div id="statusBox" class="hidden text-center space-y-1">
+        <p id="statusText" class="text-sm text-indigo-300 font-medium">Procesando...</p>
+        <div class="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div id="progressBar" class="bg-indigo-500 h-2 w-0 transition-all duration-150"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultado / Descarga -->
+    <div id="downloadArea" class="hidden text-center pt-2 border-t border-slate-700">
+      <p class="text-xs text-emerald-400 font-semibold mb-2">¡Video con visualizador generado con éxito!</p>
+      <a id="downloadBtn" download="video_visualizer_hd.mp4" class="inline-block bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-6 rounded-xl transition duration-200">
+        Descargar Video HD
+      </a>
+    </div>
+  </div>
+
+  <audio id="audioElement" class="hidden"></audio>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const audioInput = document.getElementById('audioInput');
+    const renderBtn = document.getElementById('renderBtn');
+    const previewToggleBtn = document.getElementById('previewToggleBtn');
+    const barColorSelect = document.getElementById('barColorSelect');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const ctx = previewCanvas.getContext('2d');
+    const audioElement = document.getElementById('audioElement');
+    const placeholderText = document.getElementById('placeholderText');
+    const statusBox = document.getElementById('statusBox');
+    const statusText = document.getElementById('statusText');
+    const progressBar = document.getElementById('progressBar');
+    const downloadArea = document.getElementById('downloadArea');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    let loadedImage = null;
+    let audioUrl = null;
+    let audioCtx = null;
+    let analyser = null;
+    let sourceNode = null;
+    let isInitialized = false;
+    let animationFrameId = null;
+    let isPreviewPlaying = false;
+
+    // Inicializar Web Audio API y Analizador de frecuencias
+    function initAudioContext() {
+      if (isInitialized) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 128; // Número de barras (64 barras de frecuencia)
+
+      sourceNode = audioCtx.createMediaElementSource(audioElement);
+      sourceNode.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      isInitialized = true;
+    }
+
+    // Cargar Imagen y adaptar el Canvas a su resolución original
+    imageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.onload = () => {
+        loadedImage = img;
+        previewCanvas.width = img.width;
+        previewCanvas.height = img.height;
+        placeholderText.classList.add('hidden');
+        drawCanvasStatic();
+        checkReadyState();
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    // Cargar Audio
+    audioInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      audioUrl = URL.createObjectURL(file);
+      audioElement.src = audioUrl;
+      initAudioContext();
+      checkReadyState();
+    });
+
+    function checkReadyState() {
+      if (loadedImage && audioElement.src) {
+        renderBtn.disabled = false;
+        previewToggleBtn.disabled = false;
+      }
+    }
+
+    // Calcular color inteligente (analiza el brillo promedio inferior de la imagen para elegir blanco o negro automáticamente)
+    function getSmartBarColor() {
+      if (!loadedImage) return '#ffffff';
+      
+      // Muestrear los píxeles de la zona inferior de la imagen
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCanvas.width = 100;
+      tempCanvas.height = 100;
+      tempCtx.drawImage(loadedImage, 0, 0, 100, 100);
+      
+      const imgData = tempCtx.getImageData(0, 75, 100, 25).data; // zona baja
+      let r = 0, g = 0, b = 0, count = 0;
+      
+      for (let i = 0; i < imgData.length; i += 4) {
+        r += imgData[i];
+        g += imgData[i+1];
+        b += imgData[i+2];
+        count++;
+      }
+      
+      r = Math.floor(r / count);
+      g = Math.floor(g / count);
+      b = Math.floor(b / count);
+      
+      // Fórmula estándar de luminancia
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      
+      // Si el fondo es claro, retorna barras oscuras con sombra brillante; si es oscuro, blanco puro
+      return brightness > 140 ? '#1e293b' : '#ffffff';
+    }
+
+    // Función principal para dibujar el canvas (imagen + visualizador animado)
+    function drawCanvasFrame() {
+      // 1. Limpiar y dibujar la imagen adaptada (letterbox/cover)
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+      if (loadedImage) {
+        const hRatio = previewCanvas.width / loadedImage.width;
+        const vRatio = previewCanvas.height / loadedImage.height;
+        const ratio = Math.min(hRatio, vRatio);
+        const centerShiftX = (previewCanvas.width - loadedImage.width * ratio) / 2;
+        const centerShiftY = (previewCanvas.height - loadedImage.height * ratio) / 2;
+
+        ctx.drawImage(
+          loadedImage,
+          0, 0, loadedImage.width, loadedImage.height,
+          centerShiftX, centerShiftY, loadedImage.width * ratio, loadedImage.height * ratio
+        );
+      }
+
+      // 2. Dibujar el Visualizador de Audio (si hay analizador activo)
+      if (analyser) {
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+
+        // Configuración de colores
+        let selectedColor = barColorSelect.value;
+        if (selectedColor === 'smart') {
+          selectedColor = getSmartBarColor();
+        }
+
+        ctx.save();
+        
+        // Sombra suave para que las barras destaquen sobre cualquier fondo
+        ctx.shadowColor = selectedColor === '#1e293b' ? 'rgba(255,255,255,0.6)' : 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = previewCanvas.width * 0.01;
+        ctx.fillStyle = selectedColor;
+
+        const barsCount = 48; // Número de barras visibles
+        const margin = previewCanvas.width * 0.05; // Margen lateral del 5%
+        const availableWidth = previewCanvas.width - (margin * 2);
+        const barWidth = (availableWidth / barsCount) * 0.75;
+        const barSpacing = (availableWidth / barsCount) * 0.25;
+        
+        // Posicionar en la parte inferior con un pequeño padding
+        const maxBarHeight = previewCanvas.height * 0.22; // Altura máxima de las barras
+        const baseY = previewCanvas.height - (previewCanvas.height * 0.04);
+
+        for (let i = 0; i < barsCount; i++) {
+          const dataIndex = Math.floor((i / barsCount) * (bufferLength / 1.5));
+          const percent = dataArray[dataIndex] / 255;
+          const barHeight = Math.max(percent * maxBarHeight, previewCanvas.height * 0.01); // Altura mínima para que no sea plano
+
+          const x = margin + i * (barWidth + barSpacing);
+          const y = baseY - barHeight;
+
+          // Dibujar barra con esquinas ligeramente redondeadas o rectas elegantes
+          ctx.fillRect(x, y, barWidth, barHeight);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    function drawCanvasStatic() {
+      drawCanvasFrame();
+    }
+
+    // Botón de Previsualización en Tiempo Real
+    previewToggleBtn.addEventListener('click', async () => {
+      await audioCtx.resume();
+
+      if (isPreviewPlaying) {
+        audioElement.pause();
+        cancelAnimationFrame(animationFrameId);
+        previewToggleBtn.textContent = '▶ Reproducir Previsualización';
+        isPreviewPlaying = false;
+      } else {
+        audioElement.currentTime = 0;
+        await audioElement.play();
+        previewToggleBtn.textContent = '⏸ Pausa Previsualización';
+        isPreviewPlaying = true;
+
+        function previewLoop() {
+          drawCanvasFrame();
+          if (!audioElement.paused && !audioElement.ended) {
+            animationFrameId = requestAnimationFrame(previewLoop);
+          } else {
+            previewToggleBtn.textContent = '▶ Reproducir Previsualización';
+            isPreviewPlaying = false;
+          }
+        }
+        previewLoop();
+      }
+    });
+
+    audioElement.onended = () => {
+      cancelAnimationFrame(animationFrameId);
+      previewToggleBtn.textContent = '▶ Reproducir Previsualización';
+      isPreviewPlaying = false;
+      drawCanvasStatic();
+    };
+
+    // Renderizar y Grabar Video HD con el Visualizador
+    renderBtn.addEventListener('click', async () => {
+      // Detener previsualización si estaba activa
+      if (isPreviewPlaying) {
+        audioElement.pause();
+        cancelAnimationFrame(animationFrameId);
+        isPreviewPlaying = false;
+        previewToggleBtn.textContent = '▶ Reproducir Previsualización';
+      }
+
+      renderBtn.disabled = true;
+      previewToggleBtn.disabled = true;
+      downloadArea.classList.add('hidden');
+      statusBox.classList.remove('hidden');
+      statusText.textContent = 'Preparando grabación de video HD...';
+
+      await audioCtx.resume();
+
+      // Configurar destino de audio para capturar el stream con el ecualizador aplicado
+      const dest = audioCtx.createMediaStreamDestination();
+      sourceNode.disconnect();
+      sourceNode.connect(analyser);
+      analyser.connect(dest);
+      analyser.connect(audioCtx.destination); // Escuchar mientras graba
+
+      const canvasStream = previewCanvas.captureStream(30);
+      const audioTrack = dest.stream.getAudioTracks()[0];
+      if (audioTrack) {
+        canvasStream.addTrack(audioTrack);
+      }
+
+      let mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/mp4';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp9,opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+
+      const recorder = new MediaRecorder(canvasStream, {
+        mimeType,
+        videoBitsPerSecond: 12000000 // 12 Mbps alta calidad
+      });
+
+      const chunks = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        cancelAnimationFrame(animationFrameId);
+        const blob = new Blob(chunks, { type: mimeType });
+        const videoUrl = URL.createObjectURL(blob);
+
+        downloadBtn.href = videoUrl;
+        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        downloadBtn.download = `video_visualizer_hd.${ext}`;
+
+        statusText.textContent = '¡Renderizado completado con éxito!';
+        progressBar.style.width = '100%';
+        downloadArea.classList.remove('hidden');
+        renderBtn.disabled = false;
+        previewToggleBtn.disabled = false;
+        drawCanvasStatic();
+      };
+
+      function recordLoop() {
+        drawCanvasFrame();
+        if (!audioElement.paused && !audioElement.ended) {
+          const progress = (audioElement.currentTime / audioElement.duration) * 100;
+          progressBar.style.width = `${progress}%`;
+          statusText.textContent = `Grabando video y visualizador: ${Math.floor(audioElement.currentTime)}s / ${Math.floor(audioElement.duration)}s`;
+          animationFrameId = requestAnimationFrame(recordLoop);
+        }
+      }
+
+      audioElement.onended = () => {
+        recorder.stop();
+      };
+
+      audioElement.currentTime = 0;
+      recorder.start();
+      await audioElement.play();
+      recordLoop();
+    });
+  </script>
+</body>
+</html>
