@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creador de Video HD (Imagen + MP3)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+  <div class="bg-slate-800 p-6 rounded-2xl shadow-2xl w-full max-w-xl border border-slate-700 space-y-6">
+    <h1 class="text-2xl font-bold text-center text-indigo-400">Creador de Video HD (Resolución Original)</h1>
+
+    <!-- Selección de Archivos -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Imagen de portada</label>
+        <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Archivo MP3</label>
+        <input type="file" id="audioInput" accept="audio/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+      </div>
+    </div>
+
+    <!-- Previsualización / Canvas en Tiempo Real -->
+    <div class="relative aspect-video bg-black rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center">
+      <canvas id="previewCanvas" class="w-full h-full object-contain"></canvas>
+      <div id="placeholderText" class="absolute text-slate-500 text-sm">Carga una imagen y un MP3</div>
+    </div>
+
+    <!-- Controles y Estado -->
+    <div class="space-y-3">
+      <button id="renderBtn" disabled class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed">
+        Grabar y Exportar Video HD
+      </button>
+
+      <div id="statusBox" class="hidden text-center space-y-1">
+        <p id="statusText" class="text-sm text-indigo-300 font-medium">Procesando...</p>
+        <div class="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div id="progressBar" class="bg-indigo-500 h-2 w-0 transition-all duration-150"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultado / Descarga -->
+    <div id="downloadArea" class="hidden text-center pt-2 border-t border-slate-700">
+      <p class="text-xs text-emerald-400 font-semibold mb-2">¡Video generado correctamente en alta calidad!</p>
+      <a id="downloadBtn" download="video_export_hd.mp4" class="inline-block bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-6 rounded-xl transition duration-200">
+        Descargar Video HD
+      </a>
+    </div>
+  </div>
+
+  <audio id="audioElement" class="hidden"></audio>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const audioInput = document.getElementById('audioInput');
+    const renderBtn = document.getElementById('renderBtn');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const ctx = previewCanvas.getContext('2d');
+    const audioElement = document.getElementById('audioElement');
+    const placeholderText = document.getElementById('placeholderText');
+    const statusBox = document.getElementById('statusBox');
+    const statusText = document.getElementById('statusText');
+    const progressBar = document.getElementById('progressBar');
+    const downloadArea = document.getElementById('downloadArea');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    let loadedImage = null;
+    let audioUrl = null;
+    let animationFrameId = null;
+
+    // Dibujar imagen en el Canvas manteniendo relación de aspecto a resolución real
+    function drawCanvas() {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+      if (loadedImage) {
+        const hRatio = previewCanvas.width / loadedImage.width;
+        const vRatio = previewCanvas.height / loadedImage.height;
+        const ratio = Math.min(hRatio, vRatio);
+        const centerShiftX = (previewCanvas.width - loadedImage.width * ratio) / 2;
+        const centerShiftY = (previewCanvas.height - loadedImage.height * ratio) / 2;
+
+        ctx.drawImage(
+          loadedImage,
+          0, 0, loadedImage.width, loadedImage.height,
+          centerShiftX, centerShiftY, loadedImage.width * ratio, loadedImage.height * ratio
+        );
+      }
+    }
+
+    // Cargar Imagen y adaptar el Canvas a su resolución (o mínimo 1080p si es muy pequeña)
+    imageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.onload = () => {
+        loadedImage = img;
+
+        // CONFIGURACIÓN DE RESOLUCIÓN:
+        // Opción A: Usar la resolución exacta de la imagen subida
+        previewCanvas.width = img.width;
+        previewCanvas.height = img.height;
+
+        // (Opcional) Si prefieres forzar siempre 1080p limpios para que no pese de más si la foto es 4K:
+        // previewCanvas.width = 1920;
+        // previewCanvas.height = 1080;
+
+        placeholderText.classList.add('hidden');
+        drawCanvas();
+        checkReadyState();
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    // Cargar Audio
+    audioInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      audioUrl = URL.createObjectURL(file);
+      audioElement.src = audioUrl;
+      checkReadyState();
+    });
+
+    function checkReadyState() {
+      if (loadedImage && audioElement.src) {
+        renderBtn.disabled = false;
+      }
+    }
+
+    // Renderizar y Grabar Video en Alta Calidad
+    renderBtn.addEventListener('click', async () => {
+      renderBtn.disabled = true;
+      downloadArea.classList.add('hidden');
+      statusBox.classList.remove('hidden');
+      statusText.textContent = 'Iniciando grabación en alta resolución...';
+
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaElementSource(audioElement);
+      const dest = audioCtx.createMediaStreamDestination();
+      source.connect(dest);
+      source.connect(audioCtx.destination);
+
+      const canvasStream = previewCanvas.captureStream(30);
+      const audioTrack = dest.stream.getAudioTracks()[0];
+      if (audioTrack) {
+        canvasStream.addTrack(audioTrack);
+      }
+
+      let mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/mp4';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp9,opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+
+      const recorder = new MediaRecorder(canvasStream, {
+        mimeType,
+        videoBitsPerSecond: 12000000 // Subido a 12 Mbps para garantizar excelente nitidez en HD/4K
+      });
+
+      const chunks = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        cancelAnimationFrame(animationFrameId);
+        const blob = new Blob(chunks, { type: mimeType });
+        const videoUrl = URL.createObjectURL(blob);
+
+        downloadBtn.href = videoUrl;
+        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        downloadBtn.download = `video_export_hd.${ext}`;
+
+        statusText.textContent = '¡Renderizado HD completado!';
+        progressBar.style.width = '100%';
+        downloadArea.classList.remove('hidden');
+        renderBtn.disabled = false;
+      };
+
+      function loop() {
+        drawCanvas();
+        if (!audioElement.paused && !audioElement.ended) {
+          const progress = (audioElement.currentTime / audioElement.duration) * 100;
+          progressBar.style.width = `${progress}%`;
+          statusText.textContent = `Grabando HD: ${Math.floor(audioElement.currentTime)}s / ${Math.floor(audioElement.duration)}s`;
+          animationFrameId = requestAnimationFrame(loop);
+        }
+      }
+
+      audioElement.onended = () => {
+        recorder.stop();
+      };
+
+      await audioCtx.resume();
+      audioElement.currentTime = 0;
+      recorder.start();
+      await audioElement.play();
+      loop();
+    });
+  </script>
+</body>
+</html>
