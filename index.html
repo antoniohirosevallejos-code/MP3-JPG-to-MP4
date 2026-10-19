@@ -144,8 +144,26 @@
       const img = new Image();
       img.onload = () => {
         loadedImage = img;
-        previewCanvas.width = img.width;
-        previewCanvas.height = img.height;
+
+        // Optimización de rendimiento: limitar resolución máxima a Full HD (1920x1080)
+        // para evitar que los navegadores móviles se queden sin memoria y se congelen.
+        let targetWidth = img.width;
+        let targetHeight = img.height;
+        const maxDimension = 1920;
+
+        if (targetWidth > maxDimension || targetHeight > maxDimension) {
+          if (targetWidth > targetHeight) {
+            targetHeight = Math.round((targetHeight * maxDimension) / targetWidth);
+            targetWidth = maxDimension;
+          } else {
+            targetWidth = Math.round((targetWidth * maxDimension) / targetHeight);
+            targetHeight = maxDimension;
+          }
+        }
+
+        previewCanvas.width = targetWidth;
+        previewCanvas.height = targetHeight;
+
         placeholderText.classList.add('hidden');
         drawCanvasFrame();
         checkReadyState();
@@ -274,7 +292,6 @@
       }
     }
 
-    // Previsualización en Vivo continua
     previewToggleBtn.addEventListener('click', async () => {
       await audioCtx.resume();
 
@@ -306,7 +323,6 @@
       drawCanvasFrame();
     });
 
-    // Grabación y exportación optimizada
     renderBtn.addEventListener('click', async () => {
       if (isPreviewPlaying) {
         audioElement.pause();
@@ -335,14 +351,13 @@
         canvasStream.addTrack(audioTrack);
       }
 
-      // Forzar WebM con codecs estables para evitar errores de contenedor 0:00
       const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') 
         ? 'video/webm;codecs=vp9,opus' 
         : 'video/webm';
 
       const recorder = new MediaRecorder(canvasStream, {
         mimeType,
-        videoBitsPerSecond: 12000000
+        videoBitsPerSecond: 5000000 // Tasa de bits balanceada (5 Mbps) para prevenir bloqueos en móviles
       });
 
       const chunks = [];
@@ -362,7 +377,7 @@
 
         statusText.textContent = '¡Renderizado completado con éxito!';
         progressBar.style.width = '100%';
-        downloadArea.classList.remove('hidden');
+        downloadArea.classList.add('hidden');
         renderBtn.disabled = false;
         previewToggleBtn.disabled = false;
         drawCanvasFrame();
@@ -370,7 +385,7 @@
 
       isRecording = true;
       audioElement.currentTime = 0;
-      recorder.start(1000); // Recolectar fragmentos cada segundo para asegurar estabilidad del buffer
+      recorder.start(1000);
       await audioElement.play();
 
       function recordLoop() {
