@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creador y Recortador de Video HD Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+  <div class="bg-slate-800 p-6 rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-700 space-y-6">
+    <h1 class="text-2xl font-bold text-center text-indigo-400">Creador y Recortador de Video Pro</h1>
+
+    <!-- Pestañas de Navegación -->
+    <div class="flex border-b border-slate-700 pb-2 space-x-2">
+      <button id="tabCreator" class="flex-1 py-2 px-4 text-sm font-semibold rounded-lg bg-indigo-600 text-white transition">Creador (Audio + Imagen)</button>
+      <button id="tabTrimmer" class="flex-1 py-2 px-4 text-sm font-semibold rounded-lg bg-slate-700 text-slate-400 hover:text-white transition">Recortador de Video</button>
+    </div>
+
+    <!-- SECCIÓN 1: CREADOR -->
+    <div id="sectionCreator" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Imagen de portada</label>
+          <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Archivo MP3</label>
+          <input type="file" id="audioInput" accept="audio/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+        </div>
+      </div>
+
+      <!-- Nombre del Output Opcional -->
+      <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Nombre del archivo de salida (Opcional)</label>
+        <input type="text" id="outputNameInput" placeholder="Ej: cancion_version_1" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2.5 focus:ring-indigo-500 focus:border-indigo-500 placeholder-slate-500">
+      </div>
+
+      <!-- Opciones de Formato y Estilo (Sin bordes negros) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Formato de Salida (Layout)</label>
+          <select id="layoutSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="original">Resolución Original de la Imagen</option>
+            <option value="blur_16_9">Fondo Difuminado - 16:9 (YouTube)</option>
+            <option value="blur_9_16">Fondo Difuminado - 9:16 (Reels/TikTok)</option>
+            <option value="blur_1_1">Fondo Difuminado - 1:1 (Cuadrado)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Visualizador de Audio</label>
+          <select id="visualizerToggle" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="on">Activado (Mostrar Barras)</option>
+            <option value="off">Desactivado (Solo Imagen/Fondo)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Opciones avanzadas del Visualizador -->
+      <div id="visualizerOptions" class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Posición Barras</label>
+          <select id="positionSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2">
+            <option value="bottom">Abajo (Pantalla/Foto)</option>
+            <option value="top">Arriba (Invertido)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Color Barras</label>
+          <select id="barColorSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2">
+            <option value="smart">Automático (Contraste)</option>
+            <option value="white">Blanco</option>
+            <option value="#6366f1">Índigo</option>
+            <option value="#10b981">Esmeralda</option>
+            <option value="#f43f5e">Rosa Fucsia</option>
+            <option value="#eab308">Amarillo</option>
+          </select>
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="block text-xs font-semibold uppercase text-slate-400">Opacidad</label>
+            <span id="opacityValue" class="text-xs text-indigo-400 font-bold">85%</span>
+          </div>
+          <input type="range" id="opacityRange" min="0.1" max="1" step="0.05" value="0.85" class="w-full accent-indigo-500 cursor-pointer mt-1">
+        </div>
+      </div>
+
+      <!-- Botón de Previsualización -->
+      <div>
+        <button id="previewToggleBtn" disabled class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-xl transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed text-sm shadow">
+          ▶ Reproducir Previsualización en Vivo
+        </button>
+      </div>
+
+      <!-- Previsualización / Canvas en Tiempo Real -->
+      <div class="relative bg-black rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center shadow-inner aspect-video" id="previewContainer">
+        <canvas id="previewCanvas" class="w-full h-full object-contain"></canvas>
+        <div id="placeholderText" class="absolute text-slate-500 text-sm">Carga una imagen y un MP3 para comenzar</div>
+      </div>
+
+      <!-- Controles de Renderizado y Estado -->
+      <div class="space-y-3">
+        <button id="renderBtn" disabled class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg">
+          Grabar y Exportar Video Definitivo
+        </button>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 2: RECORTADOR DE VIDEO -->
+    <div id="sectionTrimmer" class="space-y-4 hidden">
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Carga tu Video MP4 o WebM a recortar</label>
+        <input type="file" id="videoTrimInput" accept="video/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+      </div>
+
+      <div class="relative bg-black rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center aspect-video">
+        <video id="trimVideoElement" controls class="w-full h-full object-contain"></video>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Tiempo de Inicio (Segundos)</label>
+          <input type="number" id="trimStartInput" value="0" step="0.1" min="0" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Tiempo de Fin (Segundos)</label>
+          <input type="number" id="trimEndInput" value="10" step="0.1" min="0.1" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2">
+        </div>
+      </div>
+
+      <button id="trimProcessBtn" disabled class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg">
+        Procesar y Exportar Recorte sin Pérdida de Calidad
+      </button>
+    </div>
+
+    <!-- Estado y Progreso Global -->
+    <div id="statusBox" class="hidden text-center space-y-1">
+      <p id="statusText" class="text-sm text-indigo-300 font-medium">Procesando...</p>
+      <div class="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+        <div id="progressBar" class="bg-indigo-500 h-2 w-0 transition-all duration-150"></div>
+      </div>
+    </div>
+
+    <!-- Resultado / Descarga -->
+    <div id="downloadArea" class="hidden text-center pt-2 border-t border-slate-700">
+      <p class="text-xs text-emerald-400 font-semibold mb-2">¡Archivo generado con éxito!</p>
+      <a id="downloadBtn" download="video_output.webm" class="inline-block bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-6 rounded-xl transition duration-200">
+        Descargar Archivo Final
+      </a>
+    </div>
+  </div>
+
+  <audio id="audioElement" class="hidden"></audio>
+
+  <script>
+    const tabCreator = document.getElementById('tabCreator');
+    const tabTrimmer = document.getElementById('tabTrimmer');
+    const sectionCreator = document.getElementById('sectionCreator');
+    const sectionTrimmer = document.getElementById('sectionTrimmer');
+
+    tabCreator.addEventListener('click', () => {
+      tabCreator.className = "flex-1 py-2 px-4 text-sm font-semibold rounded-lg bg-indigo-600 text-white transition";
+      tabTrimmer.className = "flex-1 py-2 px-4 text-sm font-semibold rounded-lg bg-slate-700 text-slate-400 hover:text-white transition";
+      sectionCreator.classList.remove('hidden');
+      sectionTrimmer.classList.add('hidden');
+    });
+
+    tabTrimmer.addEventListener('click', () => {
+      tabTrimmer.className = "flex-1 py-2 px-4 text-sm font-semibold rounded-lg bg-indigo-600 text-white transition";
+      tabCreator.className = "flex-1 py-2 px-4 text-sm font-semibold rounded-lg bg-slate-700 text-slate-400 hover:text-white transition";
+      sectionTrimmer.classList.remove('hidden');
+      sectionCreator.classList.add('hidden');
+    });
+
+    const imageInput = document.getElementById('imageInput');
+    const audioInput = document.getElementById('audioInput');
+    const outputNameInput = document.getElementById('outputNameInput');
+    const renderBtn = document.getElementById('renderBtn');
+    const previewToggleBtn = document.getElementById('previewToggleBtn');
+    const layoutSelect = document.getElementById('layoutSelect');
+    const visualizerToggle = document.getElementById('visualizerToggle');
+    const visualizerOptions = document.getElementById('visualizerOptions');
+    const positionSelect = document.getElementById('positionSelect');
+    const barColorSelect = document.getElementById('barColorSelect');
+    const opacityRange = document.getElementById('opacityRange');
+    const opacityValue = document.getElementById('opacityValue');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const previewContainer = document.getElementById('previewContainer');
+    const ctx = previewCanvas.getContext('2d');
+    const audioElement = document.getElementById('audioElement');
+    const placeholderText = document.getElementById('placeholderText');
+
+    const videoTrimInput = document.getElementById('videoTrimInput');
+    const trimVideoElement = document.getElementById('trimVideoElement');
+    const trimStartInput = document.getElementById('trimStartInput');
+    const trimEndInput = document.getElementById('trimEndInput');
+    const trimProcessBtn = document.getElementById('trimProcessBtn');
+
+    const statusBox = document.getElementById('statusBox');
+    const statusText = document.getElementById('statusText');
+    const progressBar = document.getElementById('progressBar');
+    const downloadArea = document.getElementById('downloadArea');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    let loadedImage = null;
+    let audioUrl = null;
+    let audioCtx = null;
+    let analyser = null;
+    let sourceNode = null;
+    let isInitialized = false;
+    let animationFrameId = null;
+    let isPreviewPlaying = false;
+    let recorder = null;
+
+    let trimVideoUrl = null;
+    videoTrimInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (trimVideoUrl) URL.revokeObjectURL(trimVideoUrl);
+      trimVideoUrl = URL.createObjectURL(file);
+      trimVideoElement.src = trimVideoUrl;
+      trimVideoElement.onloadedmetadata = () => {
+        trimEndInput.value = trimVideoElement.duration;
+        trimStartInput.max = trimVideoElement.duration;
+        trimEndInput.max = trimVideoElement.duration;
+        trimProcessBtn.disabled = false;
+      };
+    });
+
+    trimProcessBtn.addEventListener('click', async () => {
+      trimProcessBtn.disabled = true;
+      downloadArea.classList.add('hidden');
+      statusBox.classList.remove('hidden');
+      statusText.textContent = 'Preparando recorte sin pérdida de calidad...';
+
+      const startTime = parseFloat(trimStartInput.value);
+      const endTime = parseFloat(trimEndInput.value);
+
+      if (startTime >= endTime) {
+        alert('El tiempo de inicio debe ser menor al tiempo de fin.');
+        trimProcessBtn.disabled = false;
+        statusBox.classList.add('hidden');
+        return;
+      }
+
+      trimVideoElement.currentTime = startTime;
+      
+      const trimAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = trimAudioCtx.createMediaElementSource(trimVideoElement);
+      const dest = trimAudioCtx.createMediaStreamDestination();
+      source.connect(dest);
+      source.connect(trimAudioCtx.destination);
+
+      const canvasStream = trimVideoElement.captureStream(30);
+      const audioTrack = dest.stream.getAudioTracks()[0];
+      if (audioTrack) canvasStream.addTrack(audioTrack);
+
+      let mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp9,opus';
+
+      const trimRecorder = new MediaRecorder(canvasStream, { mimeType, videoBitsPerSecond: 15000000 });
+      const chunks = [];
+
+      trimRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      
+      trimRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType });
+        const videoUrl = URL.createObjectURL(blob);
+        
+        let customName = outputNameInput.value.trim() || 'video_recortado';
+        customName = customName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        
+        downloadBtn.href = videoUrl;
+        downloadBtn.download = `${customName}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
+
+        statusText.textContent = '¡Recorte completado con éxito!';
+        progressBar.style.width = '100%';
+        downloadArea.classList.remove('hidden');
+        trimProcessBtn.disabled = false;
+      };
+
+      await trimAudioCtx.resume();
+      trimRecorder.start();
+      await trimVideoElement.play();
+
+      function monitorTrim() {
+        if (trimVideoElement.currentTime >= endTime || trimVideoElement.ended) {
+          trimVideoElement.pause();
+          trimRecorder.stop();
+        } else {
+          const progress = ((trimVideoElement.currentTime - startTime) / (endTime - startTime)) * 100;
+          progressBar.style.width = `${Math.min(progress, 100)}%`;
+          statusText.textContent = `Recortando: ${Math.floor(trimVideoElement.currentTime)}s / ${Math.floor(endTime)}s`;
+          requestAnimationFrame(monitorTrim);
+        }
+      }
+      monitorTrim();
+    });
+
+    visualizerToggle.addEventListener('change', (e) => {
+      if (e.target.value === 'off') visualizerOptions.classList.add('hidden');
+      else visualizerOptions.classList.remove('hidden');
+      if (!isPreviewPlaying && loadedImage) drawCanvasFrame();
+    });
+
+    layoutSelect.addEventListener('change', () => {
+      updateCanvasDimensions();
+      if (!isPreviewPlaying && loadedImage) drawCanvasFrame();
+    });
+
+    function updateCanvasDimensions() {
+      if (!loadedImage) return;
+      const layout = layoutSelect.value;
+      if (layout === 'original') {
+        previewCanvas.width = loadedImage.width;
+        previewCanvas.height = loadedImage.height;
+        previewContainer.className = "relative bg-black rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center shadow-inner aspect-video";
+      } else if (layout.endsWith('16_9')) {
+        previewCanvas.width = 1920; previewCanvas.height = 1080;
+        previewContainer.className = "relative bg-black rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center shadow-inner aspect-video";
+      } else if (layout.endsWith('9_16')) {
+        previewCanvas.width = 1080; previewCanvas.height = 1920;
+        previewContainer.className = "relative bg-black rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center shadow-inner aspect-[9/16] max-w-sm mx-auto";
+      } else if (layout.endsWith('1_1')) {
+        previewCanvas.width = 1080; previewCanvas.height = 1080;
+        previewContainer.className = "relative bg-black rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center shadow-inner aspect-square max-w-md mx-auto";
+      }
+    }
+
+    opacityRange.addEventListener('input', (e) => {
+      opacityValue.textContent = `${Math.round(e.target.value * 100)}%`;
+      if (!isPreviewPlaying && loadedImage) drawCanvasFrame();
+    });
+
+    function initAudioContext() {
+      if (isInitialized) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 128;
+      sourceNode = audioCtx.createMediaElementSource(audioElement);
+      sourceNode.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      isInitialized = true;
+    }
+
+    imageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const img = new Image();
+      img.onload = () => {
+        loadedImage = img;
+        updateCanvasDimensions();
+        placeholderText.classList.add('hidden');
+        drawCanvasFrame();
+        checkReadyState();
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    audioInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      audioUrl = URL.createObjectURL(file);
+      audioElement.src = audioUrl;
+      initAudioContext();
+      checkReadyState();
+    });
+
+    function checkReadyState() {
+      if (loadedImage && audioElement.src) {
+        renderBtn.disabled = false;
+        previewToggleBtn.disabled = false;
+      }
+    }
+
+    function hexToRgba(hex, alpha) {
+      let c = hex.replace('#', '');
+      if (c.length === 3) c = c.split('').map(x => x + x).join('');
+      const num = parseInt(c, 16);
+      return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
+    }
+
+    function getSmartBarColor(alpha) {
+      if (!loadedImage) return `rgba(255, 255, 255, ${alpha})`;
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCanvas.width = 100; tempCanvas.height = 100;
+      tempCtx.drawImage(loadedImage, 0, 0, 100, 100);
+      const isTop = positionSelect.value === 'top';
+      const imgData = tempCtx.getImageData(0, isTop ? 0 : 75, 100, 25).data;
+      let r = 0, g = 0, b = 0, count = 0;
+      for (let i = 0; i < imgData.length; i += 4) {
+        r += imgData[i]; g += imgData[i+1]; b += imgData[i+2]; count++;
+      }
+      r = Math.floor(r / count); g = Math.floor(g / count); b = Math.floor(b / count);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness > 140 ? `rgba(15, 23, 42, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+    }
+
+    function drawCanvasFrame() {
+      ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      if (!loadedImage) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+        return;
+      }
+
+      const layout = layoutSelect.value;
+      if (layout.startsWith('blur_')) {
+        ctx.save();
+        ctx.filter = 'blur(25px) brightness(0.5)';
+        const bgRatio = Math.max(previewCanvas.width / loadedImage.width, previewCanvas.height / loadedImage.height);
+        const bgW = loadedImage.width * bgRatio;
+        const bgH = loadedImage.height * bgRatio;
+        const bgX = (previewCanvas.width - bgW) / 2;
+        const bgY = (previewCanvas.height - bgH) / 2;
+        ctx.drawImage(loadedImage, 0, 0, loadedImage.width, loadedImage.height, bgX, bgY, bgW, bgH);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+      }
+
+      const hRatio = previewCanvas.width / loadedImage.width;
+      const vRatio = previewCanvas.height / loadedImage.height;
+      const ratio = Math.min(hRatio, vRatio);
+      const renderWidth = loadedImage.width * ratio;
+      const renderHeight = loadedImage.height * ratio;
+      const startX = (previewCanvas.width - renderWidth) / 2;
+      const startY = (previewCanvas.height - renderHeight) / 2;
+
+      ctx.drawImage(loadedImage, 0, 0, loadedImage.width, loadedImage.height, startX, startY, renderWidth, renderHeight);
+
+      // 3. VISUALIZADOR DE AUDIO A ANCHO TOTAL DEL VIDEO
+      if (visualizerToggle.value === 'on' && analyser) {
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+
+        const currentAlpha = parseFloat(opacityRange.value);
+        let colorVal = barColorSelect.value;
+        if (colorVal === 'smart') colorVal = getSmartBarColor(currentAlpha);
+        else if (colorVal === 'white') colorVal = `rgba(255, 255, 255, ${currentAlpha})`;
+        else colorVal = hexToRgba(colorVal, currentAlpha);
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = colorVal;
+
+        const barsCount = 64; // Mayor cantidad de barras para abarcar toda la pantalla
+        const availableWidth = previewCanvas.width; // Ancho completo del canvas/video
+        const barTotalWidth = availableWidth / barsCount;
+        const barWidth = barTotalWidth * 0.75;
+        const barSpacing = barTotalWidth * 0.25;
+        const maxBarHeight = previewCanvas.height * 0.18;
+        const position = positionSelect.value;
+
+        for (let i = 0; i < barsCount; i++) {
+          const dataIndex = Math.floor((i / barsCount) * (bufferLength / 1.4));
+          const percent = dataArray[dataIndex] / 255;
+          const barHeight = Math.max(percent * maxBarHeight, previewCanvas.height * 0.015);
+          const x = i * barTotalWidth + (barSpacing / 2);
+          const y = (position === 'bottom') ? previewCanvas.height - barHeight : 0;
+          ctx.fillRect(x, y, barWidth, barHeight);
+        }
+        ctx.restore();
+      }
+    }
+
+    previewToggleBtn.addEventListener('click', async () => {
+      await audioCtx.resume();
+      if (isPreviewPlaying) {
+        audioElement.pause();
+        cancelAnimationFrame(animationFrameId);
+        previewToggleBtn.textContent = '▶ Reproducir Previsualización en Vivo';
+        isPreviewPlaying = false;
+      } else {
+        audioElement.currentTime = 0;
+        await audioElement.play();
+        previewToggleBtn.textContent = '⏸ Pausa Previsualización';
+        isPreviewPlaying = true;
+        function previewLoop() {
+          drawCanvasFrame();
+          if (!audioElement.paused && !audioElement.ended) {
+            animationFrameId = requestAnimationFrame(previewLoop);
+          } else {
+            previewToggleBtn.textContent = '▶ Reproducir Previsualización en Vivo';
+            isPreviewPlaying = false;
+          }
+        }
+        previewLoop();
+      }
+    });
+
+    audioElement.onended = () => {
+      cancelAnimationFrame(animationFrameId);
+      previewToggleBtn.textContent = '▶ Reproducir Previsualización en Vivo';
+      isPreviewPlaying = false;
+      drawCanvasFrame();
+      if (recorder && recorder.state === 'recording') recorder.stop();
+    };
+
+    renderBtn.addEventListener('click', async () => {
+      if (isPreviewPlaying) {
+        audioElement.pause();
+        cancelAnimationFrame(animationFrameId);
+        isPreviewPlaying = false;
+        previewToggleBtn.textContent = '▶ Reproducir Previsualización en Vivo';
+      }
+
+      renderBtn.disabled = true;
+      previewToggleBtn.disabled = true;
+      downloadArea.classList.add('hidden');
+      statusBox.classList.remove('hidden');
+      statusText.textContent = 'Preparando grabación de video HD...';
+
+      await audioCtx.resume();
+      const dest = audioCtx.createMediaStreamDestination();
+      sourceNode.disconnect();
+      sourceNode.connect(analyser);
+      analyser.connect(dest);
+      analyser.connect(audioCtx.destination);
+
+      const canvasStream = previewCanvas.captureStream(30);
+      const audioTrack = dest.stream.getAudioTracks()[0];
+      if (audioTrack) canvasStream.addTrack(audioTrack);
+
+      let mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp9,opus';
+
+      recorder = new MediaRecorder(canvasStream, { mimeType, videoBitsPerSecond: 15000000 });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+      recorder.onstop = () => {
+        cancelAnimationFrame(animationFrameId);
+        const blob = new Blob(chunks, { type: mimeType });
+        const videoUrl = URL.createObjectURL(blob);
+
+        let customName = outputNameInput.value.trim() || `video_${layoutSelect.value}`;
+        customName = customName.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        downloadBtn.href = videoUrl;
+        downloadBtn.download = `${customName}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
+
+        statusText.textContent = '¡Renderizado completado con éxito!';
+        progressBar.style.width = '100%';
+        downloadArea.classList.remove('hidden');
+        renderBtn.disabled = false;
+        previewToggleBtn.disabled = false;
+        drawCanvasFrame();
+      };
+
+      function recordLoop() {
+        drawCanvasFrame();
+        if (!audioElement.paused && !audioElement.ended) {
+          const progress = (audioElement.currentTime / audioElement.duration) * 100;
+          progressBar.style.width = `${progress}%`;
+          statusText.textContent = `Grabando video: ${Math.floor(audioElement.currentTime)}s / ${Math.floor(audioElement.duration)}s`;
+          animationFrameId = requestAnimationFrame(recordLoop);
+        }
+      }
+
+      audioElement.currentTime = 0;
+      recorder.start();
+      await audioElement.play();
+      recordLoop();
+    });
+  </script>
+</body>
+</html>
